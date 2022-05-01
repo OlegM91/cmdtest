@@ -27,6 +27,7 @@ def get_sells_list():
                 p.product_price as Цена_продукта,
                 x.sell_id as id_Продажи,
                 x.sell_qty as Колво_продаж_товара,
+                x.sell_date as Дата_продажи,
                 x.sell_qty * p.product_price as Общая_выручка,
                 (x.sell_qty * p.product_price) - (x.sell_qty * p.product_cost) as Общая_маржа,
                 x.period as Период_продаж        
@@ -34,6 +35,7 @@ def get_sells_list():
                 SELECT sell_id, 
                        product_id,
                        sell_qty,
+                       sell_date,
                        strftime('%m', sell_date) as month, 
                        p.period_name as period
                 from retail_sells
