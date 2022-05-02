@@ -49,57 +49,56 @@ def get_sells_list():
 
 # /stats - get_stats_by_period Возращаем статистику за определенный период
 # функция принимает параметром период название месяца к примеру: Август, Сентябрь и т.д
-# Результат проверки наличия такого периода в базе
-# Если результат больше 0 - cоответсвенно запись в базе есть
 # query - Берем наш запрос и отправляет его
 # return - В ответе возвращаем результат и статус
 # Если результат меньше 0 возвращаем сообщение - Период был указан не верно
 @app.get('/stats')
 def get_stats_by_period(period: str):
-    resp_period = read("select period_id from retail_periods where period_name like '%" + period.lower() + "';")
-    resp = resp_period.get("success")
-    if len(resp) > 0:
-        query = """SELECT 
-                        Период_продаж, 
-                        sum(Общая_выручка) AS Сумма_общей_выручки, 
-                        sum(Общая_маржа) AS Сумма_общей_маржи 
-                   FROM ( 
+    query = """SELECT 
+                    Период_продаж, 
+                    sum(Общая_выручка) AS Сумма_общей_выручки, 
+                    sum(Общая_маржа) AS Сумма_общей_маржи 
+               FROM ( 
+                    SELECT 
+                        p.product_id AS id_Продукта, 
+                        p.product_name AS Имя_продукта, 
+                        p.product_cost AS Сиб_продукта, 
+                        p.product_price AS Цена_продукта, 
+                        x.sell_id AS id_Продажи, 
+                        x.sell_qty AS Колво_продаж_товара, 
+                        x.sell_qty * p.product_price AS Общая_выручка, 
+                        (x.sell_qty * p.product_price) - (x.sell_qty * p.product_cost) AS Общая_маржа, 
+                        x.period AS Период_продаж 
+                    FROM ( 
                         SELECT 
-                            p.product_id AS id_Продукта, 
-                            p.product_name AS Имя_продукта, 
-                            p.product_cost AS Сиб_продукта, 
-                            p.product_price AS Цена_продукта, 
-                            x.sell_id AS id_Продажи, 
-                            x.sell_qty AS Колво_продаж_товара, 
-                            x.sell_qty * p.product_price AS Общая_выручка, 
-                            (x.sell_qty * p.product_price) - (x.sell_qty * p.product_cost) AS Общая_маржа, 
-                            x.period AS Период_продаж 
-                        FROM ( 
-                            SELECT 
-                                sell_id, 
-                                product_id, 
-                                sell_qty, 
-                                strftime('%m', sell_date) AS month, 
-                                p.period_name AS period 
-                            FROM retail_sells 
-                            JOIN retail_periods p 
-                            ON Month = p.period_id 
-                            ) AS x 
-                        JOIN retail_products AS p 
-                        ON p.product_id = x.product_id 
-                   ) AS y 
-                   GROUP BY Период_продаж 
-                   HAVING Период_продаж LIKE '%""" + period.lower() + """'
-                   ORDER BY Сумма_общей_выручки DESC;"""
+                            sell_id, 
+                            product_id, 
+                            sell_qty, 
+                            strftime('%m', sell_date) AS month, 
+                            p.period_name AS period 
+                        FROM retail_sells 
+                        JOIN retail_periods p 
+                        ON Month = p.period_id 
+                        ) AS x 
+                    JOIN retail_products AS p 
+                    ON p.product_id = x.product_id 
+               ) AS y 
+               GROUP BY Период_продаж 
+               HAVING Период_продаж LIKE '%""" + period.lower() + """'
+               ORDER BY Сумма_общей_выручки DESC;"""
+    
+    result = read(query)
+    if len(result['success']) > 0:
         return {
             'status': 200,
-            'text': "Данные успешно отправлены клиенту",
-            'response': read(query)
+            'text': "За " + result["success"][0][0] + " Всего выручки " + str(
+                result["success"][0][1]) + " Всего маржи " + str(result["success"][0][2]),
+            'response': json.dumps(result)
         }
     else:
         return {
-            'status': 404,
-            'text': "Период был указан не верно"
+            'status': 400,
+            'text': "Ошибка в запросе"
         }
 
 
