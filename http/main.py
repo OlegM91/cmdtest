@@ -105,38 +105,34 @@ def get_stats_by_period(period: str):
 
 # post_sell - Функция отправки данных о продаже на сервер
 # принимает pydanic класс в качестве параметра
-# product - Результат обращаемся в базу узнать есть ли такой продукт вообще и сразу вытаскиваем его id
-# if len(resp[0]) > 0 - Проверяем обращение в базу количеством пришедших данных
-# Если запись найдена то пришел ответ длинной больше 0 значит запись существует
-# sell_row - Если запись существует создаем набор данных для внесения в базу
 # query - В эту переменную ложим запрос в базу
+# в констукции insert into select передаем параметры product_id, ?, ?
 # result - Сюда возвращаем результат работы функции write с параметрами query sell_row
 # if result["success"] > 0 - Проверяем были ли произведены изминения в базе данных
 
+
 @app.post('/sell')
 def post_sell(postdata: PostSell):
-    product = read("""select product_id 
-                      from retail_products 
-                      where product_name
-                      like '%""" + postdata.product.lower() + "'""")
-    resp = product.get('success')
-    if len(resp) > 0:
-        sell_row = (int(product['success'][0][0]), int(postdata.qty), str(postdata.period))
-        query = "insert into retail_sells (product_id, sell_qty, sell_date) values (?,?,?)"
-        result = write(query, sell_row)
-        if result["success"] > 0:
-            return {
-                'status': 200,
-                'text': "Запись успешно добавлена",
-                'response': json.dumps(result)
-            }
-        else:
-            return {
-                'status': 400,
-                'text': "Ошибка в добавлении записи"
-            }
+    sell_row = (int(postdata.qty), str(postdata.period))
+    query = """insert into retail_sells (
+                    product_id, 
+                    sell_qty, 
+                    sell_date
+               )  
+               select product_id, ?, ?
+               from retail_products
+               where product_name
+               like '%""" + postdata.product.lower() + "'"""
+
+    result = write(query, sell_row)
+    if result["success"] > 0:
+        return {
+            'status': 200,
+            'text': "Запись успешно добавлена",
+            'response': json.dumps(result)
+        }
     else:
         return {
-            'status': 404,
-            'text': "Данные введены не правильно"
+            'status': 400,
+            'text': "Ошибка в добавлении записи"
         }
